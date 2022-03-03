@@ -1,8 +1,8 @@
 /* project4.c
 
-Team: 
-Names: 
-Honor code statement: 
+Team: 07
+Names: Nic Plybon and Adrien Ponce
+Honor code statement: This code complies with the JMU Honor Code 
 
 */
 
