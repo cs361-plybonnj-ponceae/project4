@@ -1,9 +1,7 @@
 /* project4.c
-
 Team: 07
 Names: Nic Plybon and Adrien Ponce
 Honor code statement: This code complies with the JMU Honor Code 
-
 */
 
 #include <stdio.h>
@@ -53,6 +51,22 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // Open input file for reading, exiting with error if open() fails
+    input_fd = open(argv[1], O_RDONLY);
+    if (input_fd < 0) {
+        printf("Error opening file \"%s\" for reading: %s\n", argv[1], strerror(errno));
+        return 1;
+    }
+
+    //use a struct to get size of input file
+    struct stat sb;
+
+    if (fstat(input_fd, &sb) == -1) {
+        printf("Error: %s", strerror(errno));
+        return 1;
+    }
+
+
     // Open classification file for writing. Create file if it does not
     // exist. Exit with error if open() fails.
     classification_fd = open(CLASSIFICATION_FILE, O_WRONLY | O_CREAT, 0600);
@@ -62,31 +76,71 @@ int main(int argc, char *argv[])
     }
 
     // Create the pipe here. Exit with error if this fails.
-
-
+    if (pipe(pipefd) < 0) {
+        printf("Error: %s", strerror(errno));
+        exit(1);
+    }
 
     // The pipe must be created at this point
 #ifdef GRADING // do not delete this or you will lose points
     test_pipefd(pipefd, 0);
 #endif
 
+    // total number of clusters in the input file
+    int total_clusters = sb.st_size / CLUSTER_SIZE;
+
+    // a counter used to keep track of cluster sizes that are not divisible by NUM_PROCESSES
+    int remainder = total_clusters % NUM_PROCESSES + 1;
+    // a variable used to remember the value of the remainder
+    int r = remainder - 1;
+    start_cluster = 0;
+    clusters_to_process = total_clusters / NUM_PROCESSES;
+
+    // REMOVE IN FINAL SUBMISSION
+    printf("Total file size: %lu bytes\n", sb.st_size);
+    printf("Total clusters: %d\n", total_clusters);
+   
 
     // Fork NUM_PROCESS number of child processes
     for (int i = 0; i < NUM_PROCESSES; i++) {
-
+        // decrement remainder on each iteration
+        remainder--;
         pid = fork();
         // Exit if fork() fails.
         if (pid == -1)
             exit(1);
         // This is the place to write the code for the child processes
         else if (pid == 0) {
-
             // In this else if block, you need to implement the entire logic
             // for the child processes to be aware of which clusters
             // they need to process, classify them, and create a message
             // for each cluster to be written to the pipe.
+       
+        
+        printf("Child %d\n", i + 1);
+        // with no remainder remaining
+        if (remainder <= 0) {
+            // reset remainder to 0
+            remainder = 0;
+            // compute the starting cluster
+            start_cluster = clusters_to_process * i + r;
+        } else {
+            // tack a one onto every cluster that has the remainder still remaining
+            clusters_to_process += 1;
+            start_cluster = clusters_to_process * i;
+        }
 
-
+        // REMOVE IN FINAL SUBMISSION
+        printf("\tStart cluster: %d\n", start_cluster);
+        printf("\tClusters to process: %d\n", clusters_to_process);
+            //input file = 6207 c
+            //children = 5
+            //child1 1242 cluster 0
+            //child2 1242 cluster 1242
+            //child3 1241 cluster 2484
+            //child4 1241 cluster 3725
+            //child5 1241 cluster 4966
+    
             // At this point, the child must know its start cluster and
             // the number of clusters to process.
 #ifdef GRADING // do not delete this or you will lose points
@@ -104,11 +158,13 @@ int main(int argc, char *argv[])
 
 
             // Implement the main loop for the child process below this line
+            
 
 
             exit(0); // This line needs to be the last one for the child
                      // process code. Do not delete this!
         }
+         
 
     }
 
@@ -122,11 +178,11 @@ int main(int argc, char *argv[])
 #endif
 
     // Read one message from the pipe at a time
-    while (read(pipefd[0], &message, sizeof(message)) > 0) {
+    //while (read(pipefd[0], &message, sizeof(message)) > 0) {
         // In this loop, you need to implement the processing of
         // each message sent by a child process. Based on the content,
         // a proper entry in the classification file needs to be written.
-    }
+    //}
 
     close(classification_fd); // close the file descriptor for the
                               // classification file
