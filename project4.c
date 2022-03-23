@@ -128,11 +128,30 @@ int main(int argc, char *argv[])
         message.msg_cluster_number = start_cluster;
 
 
-        while ((bytes_read = read(input_fd, &cluster_data, CLUSTER_SIZE)) > 0) {
+        
+
+
+     
+            // At this point, the child must know its start cluster and
+            // the number of clusters to process.
+#ifdef GRADING // do not delete this or you will lose points
+            printf("Child process %d\n\tStart cluster: %d\n\tClusters to process: %d\n",
+              getpid(), start_cluster, clusters_to_process);
+#endif
+            // At this point the pipe must be fully set up for the child
+            // This code must be executed before you start iterating over the input
+            // file and before you generate and write messages.
+            close(pipefd[1]);
+
+#ifdef GRADING // do not delete this or you will lose points
+            test_pipefd(pipefd, getpid());
+#endif
+
+
+    // Implement the main loop for the child process below this line
+    while ((bytes_read = read(input_fd, &cluster_data, CLUSTER_SIZE)) > 0) {
         assert(bytes_read == CLUSTER_SIZE);
         message.msg_cluster_type = TYPE_UNCLASSIFIED;
-
-
         // Checks that the current cluster is of type JPG by looking for
         // its body, and if it has either a header or a footer on each
         // iteration. This helps avoid false negatives
@@ -202,41 +221,23 @@ int main(int argc, char *argv[])
 
         printf("Cluster Number %d\tType:%x\n",message.msg_cluster_number, message.msg_cluster_type);
 
-        write(pipefd[1], &message, 1);
+        write(pipefd[1], &message, sizeof(message));
         message.msg_cluster_number++;
         }
-
-
-     
-            // At this point, the child must know its start cluster and
-            // the number of clusters to process.
-#ifdef GRADING // do not delete this or you will lose points
-            printf("Child process %d\n\tStart cluster: %d\n\tClusters to process: %d\n",
-              getpid(), start_cluster, clusters_to_process);
-#endif
-            // At this point the pipe must be fully set up for the child
-            // This code must be executed before you start iterating over the input
-            // file and before you generate and write messages.
-
-#ifdef GRADING // do not delete this or you will lose points
-            test_pipefd(pipefd, getpid());
-#endif
-
-
-            // Implement the main loop for the child process below this line
             
 
 
             exit(0); // This line needs to be the last one for the child
                      // process code. Do not delete this!
         }
-         
-
     }
 
     // All the code for the parent's handling of the messages and
     // creating the classification file needs to go in the block below
-
+    close(pipefd[0]);
+    char buffer[5];
+    read(pipefd[0], &buffer, 5);
+    
 
     // At this point, the pipe must be fully set up for the parent
 #ifdef GRADING // do not delete this or you will lose points
@@ -244,11 +245,13 @@ int main(int argc, char *argv[])
 #endif
 
     // Read one message from the pipe at a time
-    //while (read(pipefd[0], &message, sizeof(message)) > 0) {
+    while (read(pipefd[0], &message, sizeof(message)) > 0) {
         // In this loop, you need to implement the processing of
         // each message sent by a child process. Based on the content,
         // a proper entry in the classification file needs to be written.
-    //}
+        write(classification_fd, &buffer, sizeof(buffer));
+
+    }
 
     close(classification_fd); // close the file descriptor for the
                               // classification file
